@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>X-HR Labs | HR Charts - Partition & Tree</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+        }
+
+        .tabs {
+            display: flex;
+            background: #eee;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-right: 1px solid #ccc;
+            user-select: none;
+        }
+
+        .tab.active {
+            background: #fff;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .zoom-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
+        .zoom-buttons button {
+            padding: 6px 12px;
+            margin: 2px;
+            font-size: 18px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        svg {
+            width: 90%;
+            height: auto;
+            display: block;
+        }
+
+        #footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: #eee;
+            text-align: center;
+            padding: 10px;
+            border-top: 1px solid #ccc;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('partition')">Partition Chart</div>
+        <div class="tab" onclick="switchTab('tree')">Radial Tree</div>
+    </div>
+
+    <div id="partition" class="tab-content active">
+        <div class="zoom-buttons">
+            <button id="zoom-in-1">+</button>
+            <button id="zoom-out-1">−</button>
+        </div>
+        <div class="chart-container" id="chart1"></div>
+    </div>
+
+    <div id="tree" class="tab-content">
+        <div class="zoom-buttons">
+            <button id="zoom-in-2">+</button>
+            <button id="zoom-out-2">−</button>
+        </div>
+        <div class="chart-container" id="chart2"></div>
+    </div>
+
+    <div id="footer">Made by <a href="https://x-hr.co" target="_blank">X-HR Labs</a>, main categories data from <a
+            href="https://www.stakkd.tech/" target="_blank">stakkd</a></div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`.tab[onclick*="${tabId}"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        const data = {
+            name: "HR",
+            children: [
+                { name: "AI Operations", children: [{ name: "Model Training" }, { name: "Monitoring" }, { name: "Auto-Insights" }] },
+                { name: "ATS", children: [{ name: "Job Posting" }, { name: "Resume Parsing" }, { name: "Applicant Tracking" }, { name: "Interview Scheduling" }] },
+                { name: "Benefits & Perks", children: [{ name: "Benefit Plans" }, { name: "Enrollment" }, { name: "Vendor Integration" }] },
+                { name: "Candidate Assessment", children: [{ name: "Skills Testing" }, { name: "Culture Fit Surveys" }] },
+                { name: "Candidate XP", children: [{ name: "Offer Management" }, { name: "Candidate Portal" }] },
+                { name: "Career Pathing", children: [{ name: "Career Tracks" }, { name: "Succession Planning" }] },
+                { name: "Compensation", children: [{ name: "Salary Bands" }, { name: "Bonus Management" }, { name: "Review Cycles" }] },
+                { name: "Core HR", children: [{ name: "Employee Directory" }, { name: "Org Chart" }, { name: "Employee Lifecycle" }, { name: "Document Management" }] },
+                { name: "Employee XP", children: [{ name: "Onboarding" }, { name: "Feedback" }, { name: "Internal Comm" }, { name: "Event Booking" }] },
+                { name: "Engagement", children: [{ name: "Pulse Surveys" }, { name: "Recognition" }] },
+                { name: "Equity Management", children: [{ name: "Stock Plan Mgmt" }, { name: "Vesting Schedules" }] },
+                { name: "Expenses", children: [{ name: "Expense Reporting" }, { name: "Reimbursements" }, { name: "Policy Engine" }] },
+                { name: "Frontline", children: [{ name: "Mobile Shift Mgmt" }, { name: "Check-in" }, { name: "Task Lists" }] },
+                { name: "Global Employment Platform", children: [{ name: "Local Compliance" }, { name: "Multi-Currency Payroll" }, { name: "Tax Engines" }] },
+                { name: "Interviewing", children: [{ name: "Interview Kits" }, { name: "Panel Scheduling" }] },
+                { name: "L&D", children: [{ name: "Course Mgmt" }, { name: "Learning Paths" }, { name: "Certification Tracking" }, { name: "Skill Tracking" }] },
+                { name: "Leadership", children: [{ name: "360 Reviews" }, { name: "Leadership Assessments" }] },
+                { name: "Leave & Time Tracking", children: [{ name: "PTO" }, { name: "Sick Leave" }, { name: "Timesheets" }, { name: "Approvals" }] },
+                { name: "Legal & Compliance", children: [{ name: "Policy Library" }, { name: "Audit Logs" }, { name: "Risk Assessments" }] },
+                { name: "Payroll", children: [{ name: "Pay Runs" }, { name: "Tax Calculation" }, { name: "Payslips" }, { name: "Pay Integrations" }] },
+                { name: "People Analytics", children: [{ name: "Headcount Dashboards" }, { name: "Attrition" }, { name: "DEI" }, { name: "Sentiment" }] },
+                { name: "Remote Experience", children: [{ name: "Virtual Onboarding" }, { name: "Remote Tools" }] },
+                { name: "Scheduling", children: [{ name: "Shift Scheduling" }, { name: "Calendar/Email Integration" }] },
+                { name: "Skills Intelligence", children: [{ name: "Skill Taxonomy" }, { name: "Gap Analysis" }, { name: "AI-Skill Matching" }] },
+                { name: "Sourcing", children: [{ name: "Talent Pool" }, { name: "LinkedIn Integration" }, { name: "Github Integration" }, { name: "Outreach" }] },
+                { name: "Talent Management", children: [{ name: "Performance Reviews" }, { name: "Calibration" }, { name: "Promotions" }] },
+                { name: "Technical Assessment", children: [{ name: "Coding Tests" }, { name: "Quiz Platforms" }] },
+                { name: "Wellbeing", children: [{ name: "Wellness Programs" }, { name: "EAP Integration" }] },
+                { name: "Workforce Planning", children: [{ name: "Forecasting" }, { name: "Budgeting" }, { name: "Capacity Planning" }] }
+            ]
+        };
+
+        // Partition Chart
+        (function () {
+            const width = 928;
+            const radius = width / 2;
+            const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
+            const partition = d3.partition().size([2 * Math.PI, radius]);
+            const arc = d3.arc()
+                .startAngle(d => d.x0)
+                .endAngle(d => d.x1)
+                .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
+                .padRadius(radius / 2)
+                .innerRadius(d => d.y0)
+                .outerRadius(d => d.y1 - 1);
+
+            const root = partition(d3.hierarchy(data).sum(d => d.value || 1).sort((a, b) => b.value - a.value));
+            const svg = d3.create("svg")
+                .attr("width", width)
+                .attr("height", width)
+                .attr("viewBox", [-width / 2, -width / 2, width, width])
+                .attr("style", "font: 10px sans-serif;");
+
+            const g = svg.append("g");
+            const format = d3.format(",d");
+
+            g.append("g")
+                .attr("fill-opacity", 0.6)
+                .selectAll("path")
+                .data(root.descendants().filter(d => d.depth))
+                .join("path")
+                .attr("fill", d => {
+                    while (d.depth > 1) d = d.parent;
+                    return color(d.data.name);
+                })
+                .attr("d", arc)
+                .append("title")
+                .text(d => `${d.ancestors().map(d => d.data.name).reverse().join("/")}\n${format(d.value)}`);
+
+            g.append("g")
+                .attr("pointer-events", "none")
+                .attr("text-anchor", "middle")
+                .attr("font-size", 10)
+                .selectAll("text")
+                .data(root.descendants().filter(d => d.depth && (d.y0 + d.y1) / 2 * (d.x1 - d.x0) > 10))
+                .join("text")
+                .attr("transform", d => {
+                    const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+                    const y = (d.y0 + d.y1) / 2;
+                    return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+                })
+                .attr("dy", "0.35em")
+                .text(d => d.data.name);
+
+            const zoom = d3.zoom().scaleExtent([0.4, 5]).on("zoom", ({ transform }) => g.attr("transform", transform));
+            svg.call(zoom);
+            let transform1 = d3.zoomIdentity.scale(0.5);
+            svg.call(zoom.transform, transform1);
+
+            document.getElementById("zoom-in-1").onclick = () => {
+                transform1 = transform1.scale(1.2);
+                svg.transition().duration(300).call(zoom.transform, transform1);
+            };
+            document.getElementById("zoom-out-1").onclick = () => {
+                transform1 = transform1.scale(0.8);
+                svg.transition().duration(300).call(zoom.transform, transform1);
+            };
+
+            document.getElementById("chart1").appendChild(svg.node());
+        })();
+
+        // Radial Tree Chart
+        (function () {
+            const width = 928;
+            const height = width;
+            const cx = width / 2;
+            const cy = height * 0.59;
+            const radius = Math.min(width, height) / 2 - 30;
+
+            const tree = d3.tree().size([2 * Math.PI, radius]).separation((a, b) => (a.parent == b.parent ? 1 : 2) / a.depth);
+            const root = tree(d3.hierarchy(data).sort((a, b) => d3.ascending(a.data.name, b.data.name)));
+
+            const svg = d3.create("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("viewBox", [-cx, -cy, width, height])
+                .attr("style", "font: 10px sans-serif;");
+
+            const g = svg.append("g");
+
+            g.append("g")
+                .attr("fill", "none")
+                .attr("stroke", "#555")
+                .attr("stroke-opacity", 0.4)
+                .attr("stroke-width", 1)
+                .selectAll("path")
+                .data(root.links())
+                .join("path")
+                .attr("d", d3.linkRadial().angle(d => d.x).radius(d => d.y * 0.7));
+
+            g.append("g")
+                .selectAll("circle")
+                .data(root.descendants())
+                .join("circle")
+                .attr("transform", d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y * 0.7},0)`)
+                .attr("fill", d => d.children ? "#555" : "#999")
+                .attr("r", 2.5);
+
+            g.append("g")
+                .attr("stroke-linejoin", "round")
+                .attr("stroke-width", 3)
+                .selectAll("text")
+                .data(root.descendants())
+                .join("text")
+                .attr("transform", d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y * 0.7},0) rotate(${d.x >= Math.PI ? 180 : 0})`)
+                .attr("dy", "0.31em")
+                .attr("x", d => d.x < Math.PI === !d.children ? 6 : -6)
+                .attr("text-anchor", d => d.x < Math.PI === !d.children ? "start" : "end")
+                .attr("paint-order", "stroke")
+                .attr("stroke", "white")
+                .attr("font-size", "9px")
+                .attr("fill", "currentColor")
+                .text(d => d.data.name);
+
+            const zoom = d3.zoom().scaleExtent([0.5, 5]).on("zoom", ({ transform }) => g.attr("transform", transform));
+            svg.call(zoom);
+            let transform2 = d3.zoomIdentity.scale(0.8);
+            svg.call(zoom.transform, transform2);
+
+            document.getElementById("zoom-in-2").onclick = () => {
+                transform2 = transform2.scale(1.2);
+                svg.transition().duration(300).call(zoom.transform, transform2);
+            };
+            document.getElementById("zoom-out-2").onclick = () => {
+                transform2 = transform2.scale(0.8);
+                svg.transition().duration(300).call(zoom.transform, transform2);
+            };
+
+            document.getElementById("chart2").appendChild(svg.node());
+        })();
+    </script>
+</body>
+
+</html>
