@@ -44,4 +44,4 @@ open index.html
 - [ ] Enable filtering or highlighting specific domains (e.g. Payroll, Talent)
 - [ ] Make the layout responsive for smaller screens
 - [ ] Export visualizations as PNG or PDF
-- [ ] Host the chart with GitHub Pages or Netlify for public access
+- [x] Host the chart with GitHub Pages or Netlify for public access
