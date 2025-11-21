@@ -1,0 +1,21 @@
+name: Auto Copilot Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+jobs:
+  copilot_review:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.CI_PIPELINE_PAT }}
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Install copilot-review extension
+        run: gh extension install github/copilot-review
+
+      - name: Request Copilot review
+        run: gh copilot-review submit --pr ${{ github.event.pull_request.number }}
