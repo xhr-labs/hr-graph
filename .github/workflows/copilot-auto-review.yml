@@ -1,0 +1,20 @@
+name: Auto Copilot Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+jobs:
+  add-copilot-to-pr-reviews:
+    name: "Add Copilot to PR reviews"
+    if: ${{ github.event.pull_request.draft == false }}   # skip still-draft PRs
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.CI_PIPELINE_PAT }}   # gh CLI picks this up automatically
+
+    steps:
+      - name: Install gh-copilot-review extension
+        run: gh extension install ChrisCarini/gh-copilot-review
+
+      - name: Ask Copilot to review this PR
+        run: gh copilot-review "${{ github.event.pull_request.html_url }}"
