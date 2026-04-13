@@ -1,0 +1,47 @@
+name: Issue Auto-Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    name: AI Issue Triage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Triage Issue
+        id: ai-triage
+        continue-on-error: true
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/ai-review@main
+        with:
+          task: triage
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Triage issue #${{ github.event.issue.number }} in ${{ github.repository }}.
+
+            ## Tools available
+            - `.ai-scripts/gh.sh` — sandboxed gh CLI
+            - `.ai-scripts/edit-issue-labels.sh` — safe label editor
+
+            ## Steps
+            1. Read the issue body
+            2. Search for similar issues: `.ai-scripts/gh.sh search issues "<keywords>" --limit 5`
+            3. Classify: type (bug, feature, docs, question), priority (critical, high, medium, low)
+            4. Apply labels: `.ai-scripts/edit-issue-labels.sh --add-label <type> --add-label <priority>`
+            5. Post a triage comment using `gh issue comment`
+          system_prompt: "You are an issue triage bot. Use .ai-scripts/gh.sh for reading issues and .ai-scripts/edit-issue-labels.sh for applying labels. Post exactly one comment."
+
+      - name: Report AI status
+        if: steps.ai-triage.outcome == 'failure'
+        run: echo "::warning::AI triage step failed — check logs above for details"
