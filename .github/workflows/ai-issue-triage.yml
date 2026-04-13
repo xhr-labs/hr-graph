@@ -1,0 +1,115 @@
+# AI Issue Triage — auto-categorize new issues and assess implementability
+# Adopted from xhr-labs/platform-dev-toolkit AI CI Playbook
+#
+# Security review:
+# - No untrusted input in run: commands
+# - Issue number in with: inputs is safe (integer from GitHub event context)
+# - Uses continue-on-error: true (fail-open, advisory only)
+# - Label application uses .ai-scripts/edit-issue-labels.sh (validates labels exist)
+
+name: AI Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    name: AI Issue Triage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Triage Issue
+        id: ai-triage
+        continue-on-error: true
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/ai-review@main
+        with:
+          task: triage
+          model: 'claude-sonnet-4-6'
+          max_turns: '12'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Triage issue #${{ github.event.issue.number }} in ${{ github.repository }}.
+
+            ## Tools available
+            - `.ai-scripts/gh.sh` — sandboxed gh CLI (issue view, issue list, search issues, label list)
+            - `.ai-scripts/edit-issue-labels.sh` — safe label editor (validates labels exist before applying)
+
+            ## Steps
+
+            ### Step 1: Read and classify
+            Read the issue body. Search for similar issues: `.ai-scripts/gh.sh search issues "<keywords>" --limit 5`
+
+            Classify:
+            - Type: bug, feature, docs, question, refactor
+            - Priority: critical, high, medium, low
+
+            Apply labels: `.ai-scripts/edit-issue-labels.sh --add-label <type> --add-label <priority>`
+
+            ### Step 2: Assess implementability
+            Evaluate whether Claude can auto-implement this issue. ALL criteria must be true:
+
+            1. **SPECIFIC**: Describes a concrete change, not a vague goal or discussion
+            2. **SCOPED**: Affects a small number of files, not a system-wide refactor
+            3. **PATTERNED**: Similar code exists in the repo to follow as a template
+            4. **TESTABLE**: Acceptance criteria are stated or clearly derivable
+            5. **SAFE**: No infrastructure changes, no DB migrations, no secrets handling
+
+            Three possible verdicts:
+
+            **IMPLEMENTABLE** (all 5 criteria clearly met):
+            - Apply label: `.ai-scripts/edit-issue-labels.sh --add-label claude/implement`
+
+            **NEEDS CLARIFICATION** (some criteria unclear, not enough context):
+            - Do NOT apply claude/implement label
+            - Tag the issue author to ask for missing information
+
+            **NOT IMPLEMENTABLE** (criteria clearly fail — too broad, needs migration, etc.):
+            - Do NOT apply claude/implement label
+            - List which criteria failed
+
+            When in doubt between IMPLEMENTABLE and NEEDS CLARIFICATION, choose NEEDS CLARIFICATION.
+
+            ### Step 3: Post triage comment
+            Post ONE comment using `gh issue comment` with this format.
+            Use the issue author's username (from the issue metadata) to tag them when needed.
+
+            ```
+            ## Issue Triage
+
+            **Type**: <type> | **Priority**: <priority>
+
+            **Similar issues**: <list or "none found">
+
+            ### Implementability Assessment
+            **Verdict**: IMPLEMENTABLE / NEEDS CLARIFICATION / NOT IMPLEMENTABLE
+
+            <If IMPLEMENTABLE>
+            All criteria met — `claude/implement` label applied. Claude will draft a PR.
+
+            <If NEEDS CLARIFICATION>
+            @<issue-author> — I need more information before this can be auto-implemented:
+            - <list specific questions or missing details>
+
+            <If NOT IMPLEMENTABLE>
+            This issue is not suitable for auto-implementation:
+            - <list which criteria failed and why>
+            ```
+          system_prompt: >-
+            You are an issue triage bot. Use .ai-scripts/gh.sh for reading issues and
+            .ai-scripts/edit-issue-labels.sh for applying labels. Post exactly one comment.
+            Be conservative with implementability — when in doubt, mark as NEEDS CLARIFICATION.
+
+      - name: Report AI status
+        if: steps.ai-triage.outcome == 'failure'
+        run: echo "::warning::AI triage step failed — check logs above for details"

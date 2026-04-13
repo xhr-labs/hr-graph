@@ -1,0 +1,50 @@
+name: Duplicate Detection
+
+on:
+  workflow_dispatch:
+    inputs:
+      item_number:
+        description: 'Issue/PR number flagged as duplicate'
+        required: true
+        type: number
+      potential_duplicates:
+        description: 'Comma-separated duplicate issue/PR numbers (max 3)'
+        required: true
+        type: string
+  schedule:
+    - cron: '0 7 * * *'
+
+jobs:
+  comment:
+    name: Post Duplicate Comment
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Comment on duplicates
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/duplicate-detection@main
+        with:
+          mode: comment
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          item_number: ${{ inputs.item_number }}
+          potential_duplicates: ${{ inputs.potential_duplicates }}
+          grace_period_days: '3'
+
+  auto-close:
+    name: Auto-Close Duplicates
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Close expired duplicates
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/duplicate-detection@main
+        with:
+          mode: auto-close
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          grace_period_days: '3'

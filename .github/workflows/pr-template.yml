@@ -1,0 +1,24 @@
+name: PR Template
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  pr-template:
+    name: Auto-Fill & Validate PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Auto-fill & Validate PR Template
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/pr-template@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}

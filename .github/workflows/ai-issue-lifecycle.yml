@@ -1,0 +1,46 @@
+name: Issue & PR Lifecycle
+
+on:
+  issues:
+    types: [labeled]
+  pull_request_target:
+    types: [labeled]
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  nudge:
+    name: Lifecycle Nudge
+    if: >
+      (github.event_name == 'issues' || github.event_name == 'pull_request_target') &&
+      contains(fromJSON('["invalid","needs-repro","needs-info","stale","autoclose"]'), github.event.label.name)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Post lifecycle comment
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/issue-lifecycle@main
+        with:
+          mode: nudge
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          label: ${{ github.event.label.name }}
+          item_number: ${{ github.event.issue.number || github.event.pull_request.number }}
+
+  sweep:
+    name: Lifecycle Sweep
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Sweep stale items
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/issue-lifecycle@main
+        with:
+          mode: sweep
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          stale_days: '14'
+          include_prs: 'true'

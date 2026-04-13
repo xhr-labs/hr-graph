@@ -1,0 +1,96 @@
+# AI Code Review — triggered after CI passes via label
+# Adopted from xhr-labs/platform-dev-toolkit AI CI Playbook
+
+name: AI Code Review
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [labeled]
+
+jobs:
+  security-check:
+    name: Security Check
+    if: github.event.label.name == 'status/ai-review-pending'
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+    steps:
+      - name: Validate PR Security
+        id: check
+        uses: actions/github-script@v8
+        with:
+          script: |
+            try {
+              const prNumber = context.payload.pull_request.number;
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+
+              if (!pr.head.repo || pr.head.repo.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+                core.warning(`AI review skipped: fork PR from ${pr.head.repo?.full_name ?? '(deleted fork)'}`);
+                core.setOutput('skip', 'true');
+                core.setOutput('pr_number', prNumber);
+                return;
+              }
+
+              core.setOutput('skip', 'false');
+              core.setOutput('pr_number', prNumber);
+              core.setOutput('head_sha', pr.head.sha);
+            } catch (error) {
+              core.setFailed(`Security check failed: ${error.message}`);
+            }
+
+  ai-review:
+    name: AI Code Review
+    needs: security-check
+    if: needs.security-check.result == 'success' && needs.security-check.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.security-check.outputs.head_sha }}
+          fetch-depth: 1
+
+      - name: Run AI Review
+        id: ai-review
+        continue-on-error: true
+        uses: xhr-labs/platform-dev-toolkit/.github/actions/ai-review@main
+        with:
+          task: code-review
+          pr_number: ${{ needs.security-check.outputs.pr_number }}
+          github_token: ${{ secrets.CI_PIPELINE_PAT }}
+          claude_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review PR #${{ needs.security-check.outputs.pr_number }} in ${{ github.repository }}.
+
+            ## Step 1: Get the diff
+            Call `mcp__github__get_pull_request_files` for PR ${{ needs.security-check.outputs.pr_number }}.
+
+            ## Step 2: Read changed files
+            Read the changed files and any direct dependencies they reference.
+
+            ## Step 3: Review
+            Focus on correctness, security, and consistency with existing patterns.
+            Read AGENTS.md for repo conventions.
+
+            ## Step 4: Post ONE comment
+            Use `gh pr comment` with verdict: APPROVED or CHANGES REQUESTED.
+            Format: **Verdict: APPROVED** or **Verdict: CHANGES REQUESTED**
+          system_prompt: "You are a code reviewer. Read AGENTS.md first for repo conventions. Focus on correctness and security. Post exactly one comment."
+
+      - name: Report AI status
+        if: steps.ai-review.outcome == 'failure'
+        run: echo "::warning::AI review step failed — check logs above for details"
