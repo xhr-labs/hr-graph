@@ -1,3 +1,6 @@
+# AI Code Review — triggered after CI passes via label
+# Adopted from xhr-labs/platform-dev-toolkit AI CI Playbook
+
 name: AI Code Review
 
 on:

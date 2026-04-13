@@ -1,3 +1,15 @@
+# Claude Assistant — interactive @claude from issue/PR comments + auto-implement from triage
+# Adopted from xhr-labs/platform-dev-toolkit AI CI Playbook (Appendix)
+#
+# Two trigger paths:
+# 1. @claude mention: human comments @claude on issue/PR → Claude implements/responds
+# 2. claude/implement label: triage bot applies label → Claude auto-implements from issue
+#
+# Security review:
+# - No untrusted input in run: commands (this workflow has NO run: steps except echo)
+# - github.event.comment.body / github.event.review.body / github.event.issue.body
+#   are ONLY used in job-level `if` expressions (GitHub expression context, not shell)
+
 name: Claude Code
 
 on:
@@ -16,6 +28,9 @@ concurrency:
 
 jobs:
   claude:
+    # Two trigger paths:
+    # 1. claude/implement label applied (from triage or human) — bot IS allowed here
+    # 2. @claude mention by a non-bot sender
     if: |
       (github.event_name == 'issues' && github.event.action == 'labeled' &&
        github.event.label.name == 'claude/implement') ||
