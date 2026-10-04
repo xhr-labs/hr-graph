@@ -34,8 +34,6 @@ jobs:
         uses: xhr-labs/platform-dev-toolkit/.github/actions/ai-review@main
         with:
           task: triage
-          model: 'claude-sonnet-4-6'
-          max_turns: '12'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
